@@ -1,0 +1,122 @@
+Export InDesign files to PDF
+----------------------------------------
+javascript code below:
+
+==========================================================================================
+// Get all PDF export presets
+var myPresets = app.pdfExportPresets.everyItem().name;
+myPresets.unshift("- Select Preset -");
+// Create the main dialog window
+var myWin = new Window('dialog', 'Export InDesign Files');
+myWin.orientation = 'column';
+myWin.alignChildren = 'center';
+myWin.spacing = 10;
+myWin.margins = 20;
+// Add a header
+var header = myWin.add('statictext', undefined, 'Export InDesign Files');
+header.alignment = 'center';
+header.graphics.font = ScriptUI.newFont("Arial", "Bold", 18);
+header.graphics.foregroundColor = myWin.graphics.newPen(myWin.graphics.PenType.SOLID_COLOR, [0, 0.5, 0.8, 1], 1);
+// Add an instruction text
+var instruction = myWin.add('statictext', undefined, 'Please select an export format and export method:');
+instruction.alignment = 'center';
+instruction.graphics.font = ScriptUI.newFont("Arial", "Regular", 12);
+// Add export format options
+var formatPanel = myWin.add('panel', undefined, 'Export Format');
+formatPanel.alignChildren = 'left';
+formatPanel.orientation = 'column';
+formatPanel.margins = 15;
+var exportPDF = formatPanel.add('checkbox', undefined, 'Export as PDF');
+var exportIDML = formatPanel.add('checkbox', undefined, 'Export as IDML');
+// Add the dropdown list for PDF presets
+var dropdownPanel = myWin.add('panel', undefined, 'PDF Preset');
+dropdownPanel.alignChildren = 'center';
+dropdownPanel.orientation = 'column';
+dropdownPanel.margins = 15;
+dropdownPanel.graphics.foregroundColor = myWin.graphics.newPen(myWin.graphics.PenType.SOLID_COLOR, [0.4, 0.4, 0.4, 1], 1);
+var myPDFExport = dropdownPanel.add('dropdownlist', undefined, myPresets);
+myPDFExport.selection = 1;
+myPDFExport.preferredSize.width = 200;
+// Add radio buttons for selection mode
+var selectionPanel = myWin.add('panel', undefined, 'Select InDesign Files');
+selectionPanel.alignChildren = 'left';
+selectionPanel.orientation = 'column';
+selectionPanel.margins = 15;
+var selectFolder = selectionPanel.add('radiobutton', undefined, 'Select Folder');
+selectFolder.value = true; // Default option
+var selectFiles = selectionPanel.add('radiobutton', undefined, 'Select Specific Files');
+// Add OK and Cancel buttons
+var buttonGroup = myWin.add('group');
+buttonGroup.orientation = 'row';
+buttonGroup.alignChildren = 'center';
+buttonGroup.spacing = 15;
+var btnOK = buttonGroup.add('button', undefined, 'Export', { name: 'ok' });
+var btnCancel = buttonGroup.add('button', undefined, 'Cancel', { name: 'cancel' });
+// Show the window
+myWin.center();
+var myResult = myWin.show();
+if (myResult == 1) {
+    // Get PDF preset selection
+    var myPreset = app.pdfExportPresets.item(String(myPDFExport.selection));
+    // Folder selection mode
+    if (selectFolder.value) {
+        var myFileLocation = Folder.selectDialog("Please select the path to files.");
+        if (myFileLocation) {
+            var myFolder = new Folder([myFileLocation]);
+            var myFolderContents = myFolder.getFiles("*.indd");
+            var myFileAmount = myFolderContents.length - 1;
+            for (var i = myFileAmount; i >= 0; i--) {
+                app.open(File(myFolderContents[i]));
+                // Export to PDF if selected
+                if (exportPDF.value) {
+                    app.activeDocument.exportFile(
+                        ExportFormat.PDF_TYPE,
+new File(myFolder.fsName + "/" + app.activeDocument.name.split(".indd")[0] + ".pdf"),
+                        false,
+                        myPreset
+                    );
+                }
+                // Export to IDML if selected
+                if (exportIDML.value) {
+var idmlFile = new File(myFolder.fsName + "/" + app.activeDocument.name.replace(/\.indd$/, "") + ".idml");
+                    app.activeDocument.exportFile(ExportFormat.INDESIGN_MARKUP, idmlFile);
+                }
+                app.activeDocument.close(SaveOptions.NO);
+            }
+            alert("Export completed successfully.");
+        } else {
+            alert("No folder selected. Process aborted.");
+        }
+    } else if (selectFiles.value) {
+        var myFiles = File.openDialog("Select InDesign files to export", "*.indd", true);
+        if (myFiles) {
+            for (var i = 0; i < myFiles.length; i++) {
+                app.open(File(myFiles[i]));
+                // Export to PDF if selected
+                if (exportPDF.value) {
+                    app.activeDocument.exportFile(
+                        ExportFormat.PDF_TYPE,
+                        new File(myFiles[i].fsName.replace(".indd", ".pdf")),
+                        false,
+                        myPreset
+                    );
+                }
+                // Export to IDML if selected
+                if (exportIDML.value) {
+                    var idmlFile = new File(myFiles[i].fsName.replace(/\.indd$/, ".idml"));
+                    app.activeDocument.exportFile(ExportFormat.INDESIGN_MARKUP, idmlFile);
+                }
+                app.activeDocument.close(SaveOptions.NO);
+            }
+            alert("Export completed successfully.");
+        } else {
+            alert("No files selected. Process aborted.");
+        }
+    }
+} else {
+    alert("Process aborted.");
+}
+
+
+============================================
+
