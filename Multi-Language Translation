@@ -1,0 +1,158 @@
+/**- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  - 
+Developed By: Anantha Prabu G
+This InDesign script automates multi-language text replacement 
+using a CSV file. The user selects a CSV file (translation data), 
+a master InDesign file, and an output folder through a simple 
+GUI interface. 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+#target indesign
+// Function to create GUI
+function createUI() {
+    var dlg = new Window("dialog", "Translation Automation");
+    dlg.orientation = "column";
+    dlg.alignChildren = "fill";
+    
+    // Greeting text
+    var greetingGroup = dlg.add("group");
+    greetingGroup.alignment = "center";
+    var greeting = greetingGroup.add("statictext", undefined, "Multi-Language Translation");
+    greeting.alignment = "center";
+
+    // Function to create a row with a label, text field, and browse button   
+   function addBrowseGroup(labelText) {
+        var group = dlg.add("group");
+        group.orientation = "row";
+        group.alignChildren = "fill";
+
+        var label = group.add("statictext", undefined, labelText);
+        label.justify = "right";
+        label.minimumSize.width = 90;
+
+        var input = group.add("edittext", undefined, "", { characters: 40 });
+        input.minimumSize.width = 250;
+
+        var browse = group.add("button", undefined, "Browse");
+
+        return { input: input, browse: browse };
+    }
+
+    // Create UI elements for CSV, InDesign file, and output folder
+    var dataFeedGroup = addBrowseGroup("Data Feed:");
+    var masterInddGroup = addBrowseGroup("Master Indd:");
+    var outputFolderGroup = addBrowseGroup("Output Folder:");
+
+    var buttonGroup = dlg.add("group");
+    buttonGroup.alignment = "center";
+    var cancelButton = buttonGroup.add("button", undefined, "Cancel");
+    var okButton = buttonGroup.add("button", undefined, "OK");
+
+    // Browse button actions
+    dataFeedGroup.browse.onClick = function () {
+        var file = File.openDialog("Select Data Feed");
+        if (file) dataFeedGroup.input.text = file.fsName;
+    };
+
+    masterInddGroup.browse.onClick = function () {
+        var file = File.openDialog("Select Master InDesign File", "*.indd");
+        if (file) masterInddGroup.input.text = file.fsName;
+    };
+
+    outputFolderGroup.browse.onClick = function () {
+        var folder = Folder.selectDialog("Select Output Folder");
+        if (folder) outputFolderGroup.input.text = folder.fsName;
+    };
+
+    var userChoice = false;
+    
+    okButton.onClick = function () {
+        if (dataFeedGroup.input.text == "" || masterInddGroup.input.text == "" || outputFolderGroup.input.text == "") {
+            alert("Please select all required files and folders.");
+            return;
+        }
+        userChoice = true;
+        dlg.close();
+    };
+
+    cancelButton.onClick = function () {
+        dlg.close();
+    };
+
+    dlg.show();
+    
+    if (userChoice) {
+        processTranslation(dataFeedGroup.input.text, masterInddGroup.input.text, outputFolderGroup.input.text);
+    }
+}
+
+function processTranslation(csvPath, masterInddPath, outputFolderPath) {
+    var csvFile = new File(csvPath);
+    if (!csvFile.exists) {
+        alert("CSV file not found.");
+        return;
+    }
+    
+    csvFile.open('r');
+    var translations = [];
+    var rowCounter = 0;
+
+    while (!csvFile.eof) {
+        rowCounter++;
+        var line = csvFile.readln();
+        var columns = line.split(",");
+
+        if (rowCounter == 1) continue; // Skip header line
+
+        translations.push(columns);
+    }
+    
+    csvFile.close();
+
+    var masterFile = new File(masterInddPath);
+    if (!masterFile.exists) {
+        alert("Master InDesign file not found.");
+        return;
+    }
+
+    var myDoc = app.open(masterFile);
+    var originalPath = masterInddPath;
+    var originalName = masterFile.name.replace(/\.indd$/, "");
+
+    var languages = [
+        { index: 1, name: "Dutch" },
+        { index: 2, name: "German" }
+        //{ index: 2, name: "French" },
+         //{ index: 2, name: "Spanish" }
+    ];
+
+    for (var i = 0; i < languages.length; i++) {
+        var langIndex = languages[i].index;
+        var languageName = languages[i].name;
+
+        myDoc.close(SaveOptions.NO);
+        myDoc = app.open(File(originalPath));
+
+        app.findGrepPreferences = app.changeGrepPreferences = null;
+
+        for (var rowIndex = 0; rowIndex < translations.length; rowIndex++) {
+            var myFind = translations[rowIndex][0]; // English text
+            var myChange = translations[rowIndex][langIndex]; // Target language text
+
+            myFind = myFind.replace(/([\*\+\?\|\{\}\[\]\(\)\^])/g, "\\$1");
+
+            app.findGrepPreferences.findWhat = myFind;
+            app.changeGrepPreferences.changeTo = myChange;
+            myDoc.changeGrep();
+        }
+
+        var savePath = outputFolderPath + "/" + originalName + "_" + languageName + ".indd";
+        myDoc.save(new File(savePath));
+    }
+
+    myDoc.close(SaveOptions.NO);
+    app.findGrepPreferences = app.changeGrepPreferences = null;
+    
+    alert("Translation completed! Files saved in the output folder.");
+}
+
+createUI();
